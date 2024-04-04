@@ -1,0 +1,64 @@
+name: Web Scraping CI/CD
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - reopened
+      - synchronize
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Check if PR is in draft mode
+        id: check-draft
+        run: |
+          if [[ "$(jq -r '.draft' $GITHUB_EVENT_PATH)" == "true" ]]; then
+            echo "PR is in draft mode. Skipping the workflow."
+            echo "::set-output name=skip_workflow::true"
+          else
+            echo "::set-output name=skip_workflow::false"
+          fi
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3        
+
+      - name: Set up quicktype
+        run: npm install -g quicktype          
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run Web Scraping Script
+        run: |
+          if [[ "${{ steps.check-draft.outputs.skip_workflow }}" == "false" ]]; then
+            node uniDataScraper.js
+          fi
+
+      - name: Upload JSON artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: Scraped University Data
+          path: university_data.json
+
+      - name: Upload schema.json artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: Generated Schema
+          path: schema.json
+
+      - name: Upload QuickType schema artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: QuickType Schema
+          path: quickTypeSchema.json
